@@ -1,4 +1,4 @@
-from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
@@ -38,7 +38,7 @@ cancel_kb = ReplyKeyboardMarkup(resize_keyboard=True,)
 cancel_kb.row('Отмена')
 
 
-async def send_to_admin(dp):
+async def send_to_admin(dp):    # when bot is starting procedure
     await bot.send_message(chat_id=ADMIN_ID, text='Бот запущен')
 
 
@@ -68,7 +68,19 @@ async def cancel_handler(message: Message, state: FSMContext):
 async def first_pick(message: Message, state: FSMContext):
     if message.text == 'Погода':
         await BotStates.picked_weather.set()
-        await message.answer("Введите город в котором нужна погода", reply_markup=cancel_kb)
+        async with state.proxy() as data:   # if theres cities in users state then add them to keyboard
+            print(data)
+            if 'cities' in data:
+                if len(data['cities']) > 3:     # limit cities to 3
+                    data['cities'] = data['cities'][-3:]
+                city_kb = ReplyKeyboardMarkup(resize_keyboard=True,)
+                city_kb.row()
+                for city in data['cities']:
+                    city_kb.insert(KeyboardButton(city))
+                city_kb.row('Отмена')
+                await message.answer("Введите город в котором нужна погода или выберите из ранее вводимых Вами", reply_markup=city_kb)
+            else:
+                await message.answer("Введите город в котором нужна погода", reply_markup=cancel_kb)
     elif message.text == 'Курс UAH/USD':
         await BotStates.picked_rates.set()
         await message.answer("Курс валют запрашивается с официального сайта НБУ - bank.gov.ua", reply_markup=rates_kb)
@@ -100,7 +112,7 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
                                                 reply_markup=start_kb)
             await BotStates.started.set()
         else:
-            await callback_query.message.answer(f'Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:',
+            await callback_query.message.answer('Невозможно узнать курс, дата из будущего.\n Выберите корректную дату:',
                                                 reply_markup=create_calendar())
 
 
@@ -108,7 +120,16 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
 @dp.message_handler(state=BotStates.picked_weather)
 async def weather_pick(message: Message, state: FSMContext):
     c, w = await getweather(session=session, city=message.text)
-    await message.answer(f"В городе {c['name_ru']} сейчас {w['weather'][0]['description']}, температура {w['main']['temp']}°C", reply_markup=start_kb)
+    if w:
+        async with state.proxy() as data:   # when weather retrieved, adding city to users state
+            if 'cities' in data:
+                if not c['name_ru'] in data['cities']:
+                    data['cities'].append(c['name_ru'])
+            else:
+                data['cities'] = [c['name_ru'], ]
+        await message.answer(f"В городе {c['name_ru']} сейчас {w['weather'][0]['description']}, температура {w['main']['temp']}°C", reply_markup=start_kb)
+    else:
+        await message.answer("Не могу узнать погоду. Попробуйте заново", reply_markup=start_kb)
     await BotStates.started.set()
 
 
@@ -129,11 +150,14 @@ async def getcurrateuah(session=session, currency='USD', date=datetime.now().str
 
 async def getweather(session=session, city=''):
     url = 'https://noxplode.pythonanywhere.com/api/weather/' + city
-    print(url)
-    async with session.get(url, headers={'Authorization': WEATHER_TOKEN}) as res:
-        print(res.status)
-        res2 = await res.json()
-        print(res2)
-        c = res2['city']
-        w = res2['weatherdata']
-        return c, w
+    try:
+        async with session.get(url, headers={'Authorization': WEATHER_TOKEN}) as res:
+            res2 = await res.json()
+            c = res2['city']
+            w = res2['weatherdata']
+            return c, w
+    except Exception as inst:
+        print(type(inst))
+        print(inst.args)
+        print(inst)
+        return None, None
