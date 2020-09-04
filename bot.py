@@ -7,8 +7,13 @@ import logging
 import asyncio
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# configuring loggint to console and file
+file_handler = logging.FileHandler(filename='bot.log')
+stdout_handler = logging.StreamHandler()
+handlers = [file_handler, stdout_handler]
+
+logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(asctime)s - %(message)s', handlers=handlers)
+logger = logging.getLogger('Bot Logger')
 
 loop = asyncio.get_event_loop()
 
