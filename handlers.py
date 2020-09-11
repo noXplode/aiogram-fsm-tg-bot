@@ -32,7 +32,8 @@ start_kb = ReplyKeyboardMarkup(resize_keyboard=True,)
 start_kb.row('Погода', 'Курс UAH/USD')
 
 rates_kb = ReplyKeyboardMarkup(resize_keyboard=True,)
-rates_kb.row('Курс на сегодня', 'Курс на дату', 'Отмена')
+rates_kb.row('Курс НБУ на сегодня', 'Курс НБУ на дату')
+rates_kb.row('Отмена')
 
 cancel_kb = ReplyKeyboardMarkup(resize_keyboard=True,)
 cancel_kb.row('Отмена')
@@ -94,20 +95,21 @@ async def first_pick(message: Message, state: FSMContext):
 # picked currency rate
 @dp.message_handler(state=BotStates.picked_rates)
 async def currency_pick(message: Message, state: FSMContext):
-    if message.text == 'Курс на сегодня':
+    if message.text == 'Курс НБУ на сегодня':
         try:
-            rates = await getcurrateuah(session=session)
+            logging.info(f"{message['chat']['id']}, trying today rates {datetime.now().strftime('%Y%m%d')}")
+            rates = await getcurrateuah(session=session, date=datetime.now().strftime("%Y%m%d"))
         except Exception:
             await message.answer('Сайт НБУ недоступен, попробуйте позже', reply_markup=start_kb)
         else:
-            await message.answer('По данным НБУ курс валют на сегодня:', reply_markup=start_kb)
+            await message.answer(f'По данным НБУ курс валют на сегодня {datetime.now().strftime("%d.%m.%Y")}:', reply_markup=start_kb)
             for key, value in rates.items():
                 await message.answer(f'UAH/{key} - {str(value)}', reply_markup=start_kb)
         finally:
             await BotStates.started.set()
             logging.info(f"{message['chat']['id']} {message['chat']['first_name']} @{message['chat']['username']}, current state BotStates:started")
             await message.answer(f"{message['chat']['first_name']}, выбери что тебе интересно: погода или курс валют", reply_markup=start_kb)
-    elif message.text == 'Курс на дату':
+    elif message.text == 'Курс НБУ на дату':
         await BotStates.picked_rates_date.set()
         logging.info(f"{message['chat']['id']} {message['chat']['first_name']} @{message['chat']['username']}, current state BotStates:picked_rates_date")
         await message.answer("Задайте дату: ", reply_markup=create_calendar())
@@ -119,7 +121,7 @@ async def currency_pick(message: Message, state: FSMContext):
 @dp.callback_query_handler(calendar_callback.filter(), state=BotStates.picked_rates_date)
 async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
     selected, date = await process_calendar_selection(callback_query, callback_data)
-    logging.info(f"{callback_query.message.chat.id}, picked currency rates date: {date}")
+    logging.info(f"{callback_query.message.chat.id}, trying on date rates {date.strftime('%Y%m%d')}")
     if selected:
         if date <= datetime.now():
             try:
@@ -127,7 +129,7 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
             except Exception:
                 await callback_query.message.answer('Сайт НБУ недоступен, попробуйте позже', reply_markup=start_kb)
             else:
-                await callback_query.message.answer(f'По данным НБУ курс валют на {date.strftime("%d/%m/%Y")}:', reply_markup=start_kb)
+                await callback_query.message.answer(f'По данным НБУ курс валют на {date.strftime("%d.%m.%Y")}:', reply_markup=start_kb)
                 for key, value in rates.items():
                     await callback_query.message.answer(f'UAH/{key} - {str(value)}', reply_markup=start_kb)
             finally:
@@ -135,6 +137,7 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
                 logging.info(f"{callback_query['message']['chat']['id']} {callback_query['message']['chat']['first_name']} @{callback_query['message']['chat']['username']}, current state BotStates:started")
                 await callback_query.message.answer(f"{callback_query['message']['chat']['first_name']}, выбери что тебе интересно: погода или курс валют", reply_markup=start_kb)
         else:
+            await callback_query.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:', show_alert=True)
             await callback_query.message.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:',
                                                 reply_markup=create_calendar())
 

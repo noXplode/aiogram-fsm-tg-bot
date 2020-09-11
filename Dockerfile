@@ -8,6 +8,6 @@ COPY . /usr/src/app/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-ENV TZ Europe/Kyiv
+ENV TZ=Europe/Kiev
 
 CMD ["python", "bot.py"]
