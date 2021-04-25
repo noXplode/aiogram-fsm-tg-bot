@@ -1,15 +1,15 @@
+from datetime import datetime
+import logging
+
+import aiohttp
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
+from aiogram_calendar import calendar_callback, create_calendar, process_calendar_selection
 
 from bot import bot, dp
 from config import WEATHER_TOKEN, ADMIN_ID
-from aiogramcalendar import calendar_callback, create_calendar, process_calendar_selection
-
-from datetime import datetime
-import logging
-import aiohttp
 
 
 def get_new_session() -> aiohttp.ClientSession:
@@ -112,7 +112,7 @@ async def currency_pick(message: Message, state: FSMContext):
     elif message.text == 'Курс НБУ на дату':
         await BotStates.picked_rates_date.set()
         logging.info(f"{message['chat']['id']} {message['chat']['first_name']} @{message['chat']['username']}, current state BotStates:picked_rates_date")
-        await message.answer("Задайте дату: ", reply_markup=create_calendar())
+        await message.answer("Задайте дату: ", reply_markup=await create_calendar())
     else:
         await message.answer("Выбери на какую дату нужен курс валют")
 
@@ -139,7 +139,7 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
         else:
             await callback_query.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:', show_alert=True)
             await callback_query.message.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:',
-                                                reply_markup=create_calendar())
+                                                reply_markup=await create_calendar())
 
 
 # picked weather

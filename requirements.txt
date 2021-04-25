@@ -1,2 +1,4 @@
 aiogram~=2.9.2
 asyncio~=3.4.3
+aiogram_calendar
+flake8
