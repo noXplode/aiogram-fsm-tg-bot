@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery, ReplyKeyboardMarkup, KeyboardB
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram_calendar import calendar_callback, create_calendar, process_calendar_selection
+from aiogram_calendar import simple_cal_callback, SimpleCalendar
 
 from bot import bot, dp
 from config import WEATHER_TOKEN, ADMIN_ID
@@ -112,15 +112,15 @@ async def currency_pick(message: Message, state: FSMContext):
     elif message.text == 'Курс НБУ на дату':
         await BotStates.picked_rates_date.set()
         logging.info(f"{message['chat']['id']} {message['chat']['first_name']} @{message['chat']['username']}, current state BotStates:picked_rates_date")
-        await message.answer("Задайте дату: ", reply_markup=await create_calendar())
+        await message.answer("Задайте дату: ", reply_markup=await SimpleCalendar().start_calendar())
     else:
         await message.answer("Выбери на какую дату нужен курс валют")
 
 
 # calendar date pick callback handler
-@dp.callback_query_handler(calendar_callback.filter(), state=BotStates.picked_rates_date)
+@dp.callback_query_handler(simple_cal_callback.filter(), state=BotStates.picked_rates_date)
 async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
-    selected, date = await process_calendar_selection(callback_query, callback_data)
+    selected, date = await SimpleCalendar().process_selection(callback_query, callback_data)
     logging.info(f"{callback_query.message.chat.id}, trying on date rates {date.strftime('%Y%m%d')}")
     if selected:
         if date <= datetime.now():
@@ -139,7 +139,7 @@ async def calendar_handle(callback_query: CallbackQuery, callback_data: dict):
         else:
             await callback_query.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:', show_alert=True)
             await callback_query.message.answer('Невозможно узнать курс, дата из будущего.\nВыберите корректную дату:',
-                                                reply_markup=await create_calendar())
+                                                reply_markup=await SimpleCalendar().start_calendar())
 
 
 # picked weather
